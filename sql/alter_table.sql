@@ -1,0 +1,7 @@
+-- ALTER TABLE organization ADD COLUMN email_domain VARCHAR(255);
+
+-- ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE users ADD COLUMN password VARCHAR(255) NOT NULL;
+
+
