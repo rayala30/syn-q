@@ -1,6 +1,6 @@
 import requests
 
-BASE_URL = "syn-q-production.up.railway.app"  # Railway URL
+BASE_URL = "syn-q-production.up.railway.app/api"  # Railway URL
 
 
 def register():
