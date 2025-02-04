@@ -12,16 +12,25 @@ def home():
 
 @main_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()  # Get the data from the request body
+    data = request.get_json()
 
-    # Extract the required fields
+    # Extract required fields
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
     org_id = data.get("organization_id")
+    org_passcode = data.get("org_passcode")  # New field
 
-    if not name or not email or not password or not org_id:
+    if not name or not email or not password or not org_id or not org_passcode:
         return jsonify({"message": "Missing required fields"}), 400
+
+    # Validate organization and passcode
+    organization = Organization.query.filter_by(id=org_id).first()
+    if not organization:
+        return jsonify({"message": "Invalid organization ID"}), 400
+
+    if organization.org_passcode != org_passcode:
+        return jsonify({"message": "Incorrect organization passcode"}), 403  # Forbidden
 
     # Create a new User instance
     new_user = User(name=name, email=email, password=password, organization_id=org_id)
@@ -31,6 +40,7 @@ def register():
     db.session.commit()
 
     return jsonify({"message": "User registered successfully"}), 201
+
 
 
 @main_bp.route("/login", methods=["POST"])

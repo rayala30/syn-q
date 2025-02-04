@@ -8,10 +8,23 @@ def register():
     email = input("Enter your email: ")
     password = input("Enter your password: ")
     org_id = input("Enter your organization ID: ")
+    org_passcode = input("Enter the organization passcode: ")  # New field
 
-    data = {"name": name, "email": email, "password": password, "organization_id": org_id}
+    data = {
+        "name": name,
+        "email": email,
+        "password": password,
+        "organization_id": org_id,
+        "org_passcode": org_passcode  # Include in request
+    }
+
     response = requests.post(f"{BASE_URL}/register", json=data)
-    print(response.json())
+
+    if response.status_code == 201:
+        print("User registered successfully!")
+    else:
+        print(f"Error: {response.json().get('message', 'Registration failed.')}")
+
 
 
 def login():
@@ -71,7 +84,24 @@ def view_projects():
 
 def view_users(org_id):
     response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
-    print(response.json())
+
+    if response.status_code != 200:
+        print(f"Error: Unable to fetch users. Status Code: {response.status_code}")
+        return
+
+    users = response.json().get("users", [])
+
+    if not users:
+        print("No users found in this organization.")
+        return
+
+    print("\n--- Users in Organization ---")
+    for user in users:
+        print(f"User ID: {user['id']}")
+        print(f"Name: {user['name']}")
+        print(f"Email: {user['email']}")
+        print(f"Admin: {'Yes' if user['is_admin'] else 'No'}")
+        print("-" * 30)  # Separator for readability
 
 
 def main():
