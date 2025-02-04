@@ -45,7 +45,7 @@ class Project(db.Model):
 
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
 
-    files = db.relationship('File', backref='project', lazy=True)  # Linking with files
+    files = db.relationship('File', backref='project_files', lazy=True)  # Linking with files
 
     def __repr__(self):
         return f'<Project {self.project_number}>'
