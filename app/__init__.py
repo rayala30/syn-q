@@ -15,6 +15,9 @@ def create_app():
     # Initialize the app with db
     db.init_app(app)
 
+    with app.app_context():  # Ensure app context is active
+        db.create_all()
+
     # Import routes and models
     from app.routes import main_bp
     app.register_blueprint(main_bp, url_prefix='/api')
