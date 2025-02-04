@@ -95,18 +95,30 @@ def get_users():
     return jsonify({"users": user_list}), 200
 
 
-@main_bp.route("/organizations", methods=["GET"])
-def get_organizations():
-    organizations = Organization.query.all()
+# @main_bp.route("/organizations", methods=["GET"])
+# def get_organizations():
+#     organizations = Organization.query.all()
+#
+#     org_list = [
+#         {
+#             "id": org.id,
+#             "name": org.name,
+#             "admin_email": org.admin_email,
+#             "email_domain": org.email_domain
+#         }
+#         for org in organizations
+#     ]
+#
+#     return jsonify({"organizations": org_list}), 200
 
-    org_list = [
-        {
-            "id": org.id,
-            "name": org.name,
-            "admin_email": org.admin_email,
-            "email_domain": org.email_domain
-        }
-        for org in organizations
+
+@main_bp.route("/organization/<int:org_id>/users", methods=["GET"])
+def get_users_in_org(org_id):
+    users = User.query.filter_by(organization_id=org_id).all()
+
+    user_list = [
+        {"id": user.id, "name": user.name, "email": user.email, "is_admin": user.is_admin}
+        for user in users
     ]
 
-    return jsonify({"organizations": org_list}), 200
+    return jsonify({"users": user_list}), 200

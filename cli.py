@@ -24,7 +24,7 @@ def login():
     if response.status_code == 200:
         user_data = response.json()["user"]
         print("Login successful!")
-        if user_data.get("is_admin", False):
+        if user_data.get("is_admin", True):
             admin_menu(user_data)
         else:
             print("Welcome, user!")
@@ -53,7 +53,20 @@ def admin_menu(user_data):
 
 def view_projects():
     response = requests.get(f"{BASE_URL}/projects")
-    print(response.json())
+    projects = response.json().get("projects", [])
+
+    if not projects:
+        print("No projects found.")
+        return
+
+    print("\n--- Project List ---")
+    for project in projects:
+        print(f"Project Number: {project['project_number']}")
+        print(f"Client Name: {project['client_name']}")
+        print("Files:")
+        for file in project["files"]:
+            print(f"  - {file['file_name']} ({file['file_type']})")
+        print("-" * 30)  # Separator for readability
 
 
 def view_users(org_id):
