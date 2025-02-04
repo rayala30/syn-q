@@ -62,7 +62,7 @@ class File(db.Model):
     file_name = db.Column(db.String(255), nullable=False)
     file_type = db.Column(db.String(50), nullable=False)
 
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    project_id = db.Column(db.String(50), db.ForeignKey('projects.project_number'), nullable=False)
     project_number = db.Column(db.String(255), nullable=False)
 
     # FIXED: Remove the conflicting relationship definition
