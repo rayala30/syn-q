@@ -1,6 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 
-db = SQLAlchemy()
+from app import db
+
+
+# db = SQLAlchemy()
 
 
 class Organization(db.Model):
