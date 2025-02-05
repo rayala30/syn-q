@@ -19,7 +19,8 @@ def register():
     email = data.get("email")
     password = data.get("password")
     org_id = data.get("organization_id")
-    org_passcode = data.get("org_passcode")  # New field
+    org_passcode = data.get("org_passcode")
+    is_admin = data.get("is_admin", False)  # ✅ Explicitly retrieve is_admin from request
 
     if not name or not email or not password or not org_id or not org_passcode:
         return jsonify({"message": "Missing required fields"}), 400
@@ -33,7 +34,7 @@ def register():
         return jsonify({"message": "Incorrect organization passcode"}), 403  # Forbidden
 
     # Create a new User instance
-    new_user = User(name=name, email=email, password=password, organization_id=org_id)
+    new_user = User(name=name, email=email, password=password, organization_id=org_id, is_admin=is_admin)
 
     # Add to the database
     db.session.add(new_user)

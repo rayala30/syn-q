@@ -4,32 +4,45 @@ BASE_URL = "https://syn-q-production.up.railway.app/api"  # Railway URL
 
 
 def register():
-    print("Before registering, please make sure to have your organization credentials available to ensure a smooth "
-          "registration experience. ")
-    print("Registration time will take less than 5 minutes. Please enter required information below to proceed with"
-          "account creation.")
+    print("\nBefore registering, please make sure to have your organization credentials available.")
+    print("Registration will take less than 5 minutes. Please enter the required information below.")
+
+    # Ask if registering as a User or Admin
+    while True:
+        user_type = input("Are you registering as a (1) Regular User or (2) Admin? Enter 1 or 2: ").strip()
+        if user_type in ["1", "2"]:
+            break
+        print("Invalid choice. Please enter 1 for User or 2 for Admin.")
 
     name = input("Enter your name: ")
     email = input("Enter your email: ")
     password = input("Enter your password: ")
     org_id = input("Enter your organization ID: ")
     org_passcode = input("Enter the organization passcode: ")  # New field
+    is_admin = False        # Defaults to false
+
+    # Determine if user is an admin
+    if user_type == "2":
+        is_admin = True
 
     data = {
         "name": name,
         "email": email,
         "password": password,
         "organization_id": org_id,
-        "org_passcode": org_passcode  # Include in request
+        "org_passcode": org_passcode,
+        "is_admin": is_admin  # Include admin flag
     }
 
     response = requests.post(f"{BASE_URL}/register", json=data)
 
     if response.status_code == 201:
-        print("User registered successfully! Now you can join project queues in your organization!")
+        if is_admin:
+            print("Admin registered successfully! You can now manage projects and users in your organization.")
+        else:
+            print("User registered successfully! Now you can join project queues in your organization!")
     else:
-        print(f"Error: {response.json().get('message', 'Registration failed. Please try again.')}")
-
+        print(f"Error: 'Registration failed. Please try again.'")
 
 
 def login():
