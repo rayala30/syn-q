@@ -4,6 +4,11 @@ BASE_URL = "https://syn-q-production.up.railway.app/api"  # Railway URL
 
 
 def register():
+    print("Before registering, please make sure to have your organization credentials available to ensure a smooth "
+          "registration experience. ")
+    print("Registration time will take less than 5 minutes. Please enter required information below to proceed with"
+          "account creation.")
+
     name = input("Enter your name: ")
     email = input("Enter your email: ")
     password = input("Enter your password: ")
@@ -21,9 +26,9 @@ def register():
     response = requests.post(f"{BASE_URL}/register", json=data)
 
     if response.status_code == 201:
-        print("User registered successfully!")
+        print("User registered successfully! Now you can join project queues in your organization!")
     else:
-        print(f"Error: {response.json().get('message', 'Registration failed.')}")
+        print(f"Error: {response.json().get('message', 'Registration failed. Please try again.')}")
 
 
 
@@ -36,17 +41,23 @@ def login():
 
     if response.status_code == 200:
         user_data = response.json()["user"]
+
         print("Login successful!")
-        if user_data.get("is_admin", True):
+
+        print(f"DEBUG: user_data received → {user_data}")  # Debugging line
+
+        if user_data.get("is_admin", False): # Ensure it defaults to False if missing
             admin_menu(user_data)
         else:
-            print("Welcome, user!")
+            # print("Welcome, user!")
+            user_menu(user_data)  # Regular user menu
     else:
         print("Invalid credentials.")
 
 
 def admin_menu(user_data):
     while True:
+        print(f"Welcome, {user_data['name']}!")
         print("\nAdmin Menu:")
         print("1. View all projects")
         print("2. View all users in organization")
@@ -58,8 +69,35 @@ def admin_menu(user_data):
         elif choice == "2":
             view_users(user_data["organization_id"])
         elif choice == "3":
-            print("Logging out...")
-            break
+            confirm = input("Are you sure you want to log out? If you log out, you will lose all "
+                            "unsaved work. (y/n): ").strip().lower()
+            if confirm == "y":
+                print("Logging out...")
+                break
+            else:
+                print("Logout canceled.")
+        else:
+            print("Invalid choice. Try again.")
+
+
+def user_menu(user_data):
+    while True:
+        print(f"Welcome, {user_data['name']}!")
+        print("\nUser Menu:")
+        print("1. View all projects")  # Users can still see projects
+        print("2. Logout")
+        choice = input("Enter your choice: ")
+
+        if choice == "1":
+            view_projects()
+        elif choice == "2":
+            confirm = input("Are you sure you want to log out? If you log out, you are relinquishing your "
+                            "spot in the queues you have joined. (y/n): ").strip().lower()
+            if confirm == "y":
+                print("Logging out...")
+                break
+            else:
+                print("Logout canceled.")
         else:
             print("Invalid choice. Try again.")
 

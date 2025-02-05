@@ -63,7 +63,8 @@ def login():
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
-                "organization_id": user.organization_id
+                "organization_id": user.organization_id,
+                "is_admin": user.is_admin  # Make sure this is included
             }
         }), 200
 
