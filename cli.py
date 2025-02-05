@@ -57,7 +57,7 @@ def login():
 
         print("Login successful!")
 
-        print(f"DEBUG: user_data received → {user_data}")  # Debugging line
+        # print(f"DEBUG: user_data received → {user_data}")  # Debugging line
 
         if user_data.get("is_admin", False): # Ensure it defaults to False if missing
             admin_menu(user_data)
