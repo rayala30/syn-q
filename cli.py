@@ -157,7 +157,9 @@ def view_users(org_id):
 
 def main():
     while True:
-        print("\nWelcome to Syn-Q CLI")
+        print("\nWelcome to Syn-Q CLI!")
+        print("\nRegister or login to begin joining project queues!")
+
         print("1. Register")
         print("2. Login")
         print("3. Exit")
