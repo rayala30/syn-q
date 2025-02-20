@@ -116,6 +116,12 @@ def user_menu(user_data):
 
 
 def view_projects():
+    print("\nSelect project view:")
+    print("1. Summary List")
+    print("2. Detailed View (Includes Files)")
+
+    choice = input("Enter your choice (1 or 2): ").strip()
+
     response = requests.get(f"{BASE_URL}/projects")
     projects = response.json().get("projects", [])
 
@@ -123,36 +129,57 @@ def view_projects():
         print("No projects found.")
         return
 
-    print("\n--- Project List ---")
-    for project in projects:
-        print(f"Project Number: {project['project_number']}")
-        print(f"Client Name: {project['client_name']}")
-        print("Files:")
-        for file in project["files"]:
-            print(f"  - {file['file_name']} ({file['file_type']})")
-        print("-" * 30)  # Separator for readability
+    if choice == "1":
+        print("\n--- Project List ---")
+        for proj in projects:
+            print(f"Project Number: {proj['project_number']} | Client: {proj['client_name']}")
+        print("-" * 30)
+
+    elif choice == "2":
+        print("\n--- Project Details ---")
+        for proj in projects:
+            print(f"Project Number: {proj['project_number']}")
+            print(f"Client Name: {proj['client_name']}")
+            print("Files:")
+            for file in proj["files"]:
+                print(f"  - {file['file_name']} ({file['file_type']})")
+            print("-" * 30)
+    else:
+        print("Invalid choice. Defaulting to Summary List.")
+        view_projects()
 
 
 def view_users(org_id):
-    response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
+    print("\nUser Search Options:")
+    print("1. View all users")
+    print("2. Search by name")
+    print("3. Search by email")
 
-    if response.status_code != 200:
-        print(f"Error: Unable to fetch users. Status Code: {response.status_code}")
-        return
+    choice = input("Enter your choice: ").strip()
 
-    users = response.json().get("users", [])
+    if choice == "1":
+        response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
+    elif choice == "2":
+        search_name = input("Enter name to search: ").strip()
+        response = requests.get(f"{BASE_URL}/organization/{org_id}/users?name={search_name}")
+    elif choice == "3":
+        search_email = input("Enter email to search: ").strip()
+        response = requests.get(f"{BASE_URL}/organization/{org_id}/users?email={search_email}")
+    else:
+        print("Invalid choice. Defaulting to all users.")
+        response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
 
-    if not users:
-        print("No users found in this organization.")
-        return
-
-    print("\n--- Users in Organization ---")
-    for user in users:
-        print(f"User ID: {user['id']}")
-        print(f"Name: {user['name']}")
-        print(f"Email: {user['email']}")
-        print(f"Admin: {'Yes' if user['is_admin'] else 'No'}")
-        print("-" * 30)  # Separator for readability
+    if response.status_code == 200:
+        users = response.json().get("users", [])
+        if not users:
+            print("No users found.")
+        else:
+            print("\n--- Users in Organization ---")
+            for user in users:
+                print(f"User ID: {user['id']}, Name: {user['name']}, Email: {user['email']}, Admin: {user['is_admin']}")
+            print("-" * 30)
+    else:
+        print("Error fetching users.")
 
 
 def main():
