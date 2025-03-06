@@ -1,207 +1,177 @@
 import requests
+import os
+import jwt  # Import the JWT decoding library
 
-BASE_URL = "https://syn-q-production.up.railway.app/api"  # Railway URL
+# Define public URLs for each microservice (replace with actual public URLs)
+AUTH_URL = "https://syn-q-authservice-production.up.railway.app"  # URL for auth service
+PROJECT_URL = "https://syn-q-projectservice-production.up.railway.app"  # URL for project service
+QUEUE_URL = "https://syn-q-queue-service-production.up.railway.app"  # URL for queue service
+NOTIFICATION_URL = "https://web-production-d1ba5.up.railway.app"  # URL for notification service
 
 
+# Global variables to store JWT token and organization ID (from login)
+jwt_token = None
+organization_id = None
+
+# Registration Function
 def register():
-    print("\nBefore registering, please make sure to have your organization credentials available.")
-    print("Registration will take less than 5 minutes. Please enter the required information below.")
-
-    # Ask if registering as a User or Admin
-    while True:
-        user_type = input("Are you registering as a (1) Regular User or (2) Admin? Enter 1 or 2: ").strip()
-        if user_type in ["1", "2"]:
-            break
-        print("Invalid choice. Please enter 1 for User or 2 for Admin.")
+    print("Register a new user:")
 
     name = input("Enter your name: ")
     email = input("Enter your email: ")
     password = input("Enter your password: ")
     org_id = input("Enter your organization ID: ")
-    org_passcode = input("Enter the organization passcode: ")  # New field
-    is_admin = False        # Defaults to false
-
-    # Determine if user is an admin
-    if user_type == "2":
-        is_admin = True
+    org_passcode = input("Enter your organization passcode: ")
 
     data = {
         "name": name,
         "email": email,
         "password": password,
         "organization_id": org_id,
-        "org_passcode": org_passcode,
-        "is_admin": is_admin  # Include admin flag
+        "org_passcode": org_passcode
     }
 
-    response = requests.post(f"{BASE_URL}/register", json=data)
+    response = requests.post(f"{AUTH_URL}/register", json=data)
 
     if response.status_code == 201:
-        if is_admin:
-            print("Admin registered successfully! You can now manage projects and users in your organization.")
-        else:
-            print("User registered successfully! Now you can join project queues in your organization!")
+        print("Registration successful!")
     else:
-        print(f"Error: 'Registration failed. Please try again.'")
+        print(f"Error: {response.json()['message']}")
 
-
+# Login Function
 def login():
+    global jwt_token, organization_id  # Use global variables to store the token and organization_id
+
+    print("Login:")
+
     email = input("Enter your email: ")
     password = input("Enter your password: ")
 
     data = {"email": email, "password": password}
-    response = requests.post(f"{BASE_URL}/login", json=data)
+    response = requests.post(f"{AUTH_URL}/login", json=data)
+
+    # Print the response for debugging
+    print("Response status:", response.status_code)
+    print("Response JSON:", response.json())
 
     if response.status_code == 200:
-        user_data = response.json()["user"]
+        jwt_token = response.json().get("token")
 
-        print("Login successful!")
+        if jwt_token:
+            print("Login successful!")
 
-        # print(f"DEBUG: user_data received → {user_data}")  # Debugging line
+            # Decode the JWT token to extract organization_id
+            decoded_token = jwt.decode(jwt_token, options={"verify_signature": False})  # Decode without verifying signature (for testing purposes)
+            organization_id = decoded_token.get("org_id")  # Extract the organization ID from the token
 
-        if user_data.get("is_admin", False): # Ensure it defaults to False if missing
-            admin_menu(user_data)
-        else:
-            # print("Welcome, user!")
-            user_menu(user_data)  # Regular user menu
-    else:
-        print("Invalid credentials.")
-
-
-def admin_menu(user_data):
-    while True:
-        print(f"Welcome, {user_data['name']}!")
-        print("\nAdmin Menu:")
-        print("1. View all projects")
-        print("2. View all users in organization")
-        print("3. Logout")
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            view_projects()
-        elif choice == "2":
-            view_users(user_data["organization_id"])
-        elif choice == "3":
-            confirm = input("Are you sure you want to log out? If you log out, you will lose all "
-                            "unsaved work. (y/n): ").strip().lower()
-            if confirm == "y":
-                print("Logging out...")
-                break
+            if organization_id:
+                print(f"Organization ID: {organization_id} extracted from token.")
+                return jwt_token
             else:
-                print("Logout canceled.")
+                print("Error: Organization ID not found in token.")
+                return None
         else:
-            print("Invalid choice. Try again.")
-
-
-def user_menu(user_data):
-    while True:
-        print(f"Welcome, {user_data['name']}!")
-        print("\nUser Menu:")
-        print("1. View all projects")  # Users can still see projects
-        print("2. Logout")
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            view_projects()
-        elif choice == "2":
-            confirm = input("Are you sure you want to log out? If you log out, you are relinquishing your "
-                            "spot in the queues you have joined. (y/n): ").strip().lower()
-            if confirm == "y":
-                print("Logging out...")
-                break
-            else:
-                print("Logout canceled.")
-        else:
-            print("Invalid choice. Try again.")
-
-
-def view_projects():
-    print("\nSelect project view:")
-    print("1. Summary List")
-    print("2. Detailed View (Includes Files)")
-
-    choice = input("Enter your choice (1 or 2): ").strip()
-
-    response = requests.get(f"{BASE_URL}/projects")
-    projects = response.json().get("projects", [])
-
-    if not projects:
-        print("No projects found.")
-        return
-
-    if choice == "1":
-        print("\n--- Project List ---")
-        for proj in projects:
-            print(f"Project Number: {proj['project_number']} | Client: {proj['client_name']}")
-        print("-" * 30)
-
-    elif choice == "2":
-        print("\n--- Project Details ---")
-        for proj in projects:
-            print(f"Project Number: {proj['project_number']}")
-            print(f"Client Name: {proj['client_name']}")
-            print("Files:")
-            for file in proj["files"]:
-                print(f"  - {file['file_name']} ({file['file_type']})")
-            print("-" * 30)
+            print("Error: Missing 'token' in response.")
+            return None
     else:
-        print("Invalid choice. Defaulting to Summary List.")
-        view_projects()
+        print(f"Error: {response.json().get('message', 'Unknown error')}")
+        return None
 
+# View Projects Function
+def get_projects():
+    print("Fetching your projects...")
 
-def view_users(org_id):
-    print("\nUser Search Options:")
-    print("1. View all users")
-    print("2. Search by name")
-    print("3. Search by email")
+    # Use the stored organization_id and jwt_token for requests
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"
+    }
 
-    choice = input("Enter your choice: ").strip()
+    url = f"{PROJECT_URL}/projects/organization/{organization_id}"
 
-    if choice == "1":
-        response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
-    elif choice == "2":
-        search_name = input("Enter name to search: ").strip()
-        response = requests.get(f"{BASE_URL}/organization/{org_id}/users?name={search_name}")
-    elif choice == "3":
-        search_email = input("Enter email to search: ").strip()
-        response = requests.get(f"{BASE_URL}/organization/{org_id}/users?email={search_email}")
+    response = requests.get(url, headers=headers)
+
+    # Check if the response is successful
+    if response.status_code == 200:
+        try:
+            projects = response.json().get("projects", [])
+
+            if not projects:
+                print("No projects found for this organization.")
+                return
+
+            print("\n--- Projects List ---")
+            for proj in projects:
+                print(f"Project Number: {proj['project_number']} | Client: {proj['client_name']}")
+        except ValueError:
+            print(f"Error: Received an invalid JSON response. Raw response: {response.text}")
     else:
-        print("Invalid choice. Defaulting to all users.")
-        response = requests.get(f"{BASE_URL}/organization/{org_id}/users")
+        print(f"Error: {response.status_code} - {response.text}")
+
+# View Queue Function
+def get_queue():
+    print("Fetching your queue...")
+
+    # Use the stored jwt_token for requests
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"
+    }
+
+    response = requests.get(f"{QUEUE_URL}/queues", headers=headers)
 
     if response.status_code == 200:
-        users = response.json().get("users", [])
-        if not users:
-            print("No users found.")
-        else:
-            print("\n--- Users in Organization ---")
-            for user in users:
-                print(f"User ID: {user['id']}, Name: {user['name']}, Email: {user['email']}, Admin: {user['is_admin']}")
-            print("-" * 30)
+        queues = response.json()
+        if not queues:
+            print("No queues found.")
+            return
+
+        print("\n--- Queue List ---")
+        for queue in queues:
+            print(f"Queue ID: {queue['id']} | Project File: {queue['project_file']}")
     else:
-        print("Error fetching users.")
+        print(f"Error: {response.json()['message']}")
 
-
+# Main CLI Function
 def main():
+    global jwt_token, organization_id  # Use global variables to track login state
+
     while True:
-        print("\nWelcome to Syn-Q CLI!")
-        print("\nRegister or login to begin joining project queues!")
+        print("Welcome to Syn-Q CLI")
 
-        print("1. Register")
-        print("2. Login")
-        print("3. Exit")
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            register()
-        elif choice == "2":
-            login()
-        elif choice == "3":
-            print("Goodbye!")
-            break
+        # Check if the user is already logged in
+        if jwt_token and organization_id:
+            print(f"Logged in! Welcome back.")
+            next_choice = input("1. View Projects\n2. View Queue\n3. Logout\nEnter your choice: ").strip()
+            if next_choice == "1":
+                get_projects()
+            elif next_choice == "2":
+                get_queue()
+            elif next_choice == "3":
+                print("Logging out...")
+                jwt_token = None
+                organization_id = None
+            else:
+                print("Invalid choice. Returning to the main menu.")
         else:
-            print("Invalid choice. Try again.")
+            choice = input("1. Register\n2. Login\nEnter your choice: ").strip()
 
+            if choice == "1":
+                register()
+            elif choice == "2":
+                jwt_token = login()  # Now stores the token and organization_id for future use
+                if jwt_token:
+                    print("You are logged in!")
+                    # Show next options after login
+                    next_choice = input("1. View Projects\n2. View Queue\nEnter your choice: ").strip()
+                    if next_choice == "1":
+                        get_projects()
+                    elif next_choice == "2":
+                        get_queue()
+                    else:
+                        print("Invalid choice. Returning to the main menu.")
+                else:
+                    print("Login failed. Please try again.")
+            else:
+                print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     main()
