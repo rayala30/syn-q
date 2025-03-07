@@ -154,16 +154,81 @@ def add_project_file():
         print(f"Error: {response.json()['message']}")
 
 
+def get_projects_from_postgres():
+    print("Fetching projects from Postgres...")
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass the JWT token for authorization
+    response = requests.get(f"{PROJECT_URL}/projects/organization/{organization_id}", headers=headers)
+
+    if response.status_code == 200:
+        projects = response.json()["projects"]
+        return projects  # Return list of projects
+    else:
+        print(f"Error fetching projects: {response.status_code} - {response.text}")
+        return []
+
+
+def get_project_files_from_postgres(project_number):
+    print(f"Fetching project files for Project {project_number}...")
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass the JWT token for authorization
+    response = requests.get(f"{PROJECT_URL}/projects/{project_number}/files", headers=headers)
+
+    if response.status_code == 200:
+        files = response.json()["files"]
+        return files  # Return list of files for the given project
+    else:
+        print(f"Error fetching files for project {project_number}: {response.status_code} - {response.text}")
+        return []
+
+
 # Sync project files with MongoDB QueueService
 def sync_project_files_with_mongo():
     print("Syncing project files with MongoDB...")
 
-    response = requests.post(f"{PROJECT_URL}/sync-files", headers={"Authorization": f"Bearer {jwt_token}"})
+    headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass JWT token for auth
 
-    if response.status_code == 200:
-        print("Project files synced successfully!")
-    else:
-        print(f"Error: {response.json()['message']}")
+    # Get the list of projects for the organization
+    projects = get_projects_from_postgres()
+
+    if not projects:
+        print("No projects found!")
+        return
+
+    # Loop through each project and sync its files with MongoDB
+    for project in projects:
+        project_number = project["project_number"]
+        print(f"Syncing files for project {project_number}...")
+
+        # Get the project files for this project
+        files = get_project_files_from_postgres(project_number)
+
+        if not files:
+            print(f"No files found for project {project_number}!")
+            continue
+
+        # Prepare the list of files to be added, checking for duplicates
+        files_data = []
+        for file in files:
+            files_data.append({
+                "file_name": file["file_name"],
+                "file_type": file["file_type"],
+                "file_queue": []
+            })
+
+        # Check if the project already has these files before syncing
+        response = requests.post(f"{QUEUE_URL}/sync-project-files", headers=headers, json={
+            "project_number": project_number,
+            "org_id": organization_id,
+            "files": files_data  # Insert all files for this project in one array
+        })
+
+        if response.status_code == 200:
+            print(f"Successfully synced files for project {project_number} to MongoDB.")
+        else:
+            print(f"Error syncing project {project_number}: {response.status_code} - {response.text}")
+
+
 
 # View Projects Function
 def get_projects():
