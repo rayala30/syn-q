@@ -91,43 +91,68 @@ def login():
 def add_project():
     print("Add a new project:")
 
-    project_number = input("Enter project number: ")
-    client_name = input("Enter client name: ")
-    project_name = input("Enter project name: ")
+    project_number = input("Enter project number: ").strip()
+    client_name = input("Enter client name: ").strip()
+    project_name = input("Enter project name: ").strip()
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"  # Ensure the token is passed here
+    }
 
     data = {
         "project_number": project_number,
         "client_name": client_name,
         "project_name": project_name,
-        "organization_id": organization_id
+        "organization_id": organization_id  # Ensure organization_id is passed as part of the project data
     }
 
-    response = requests.post(f"{PROJECT_URL}/projects", json=data)
+    # Call the API to add the project
+    url = f"{PROJECT_URL}/projects"
+
+    response = requests.post(url, headers=headers, json=data)
 
     if response.status_code == 201:
-        print("Project created successfully!")
+        print(f"Project '{project_name}' added successfully!")
     else:
-        print(f"Error: {response.json()['message']}")
+        print(f"Error: {response.status_code} - {response.text}")
+
 
 # Add a new project file
 def add_project_file():
     print("Add a new project file:")
 
     project_number = input("Enter project number: ")
-    file_name = input("Enter file name: ")
-    file_type = input("Enter file type: ")
 
-    data = {
-        "file_name": file_name,
-        "file_type": file_type
+    # Initialize an empty list to hold files
+    files_data = []
+
+    while True:
+        file_name = input("Enter file name: ")
+        file_type = input("Enter file type: ")
+
+        # Append the new file details to the list
+        files_data.append({
+            "file_name": file_name,
+            "file_type": file_type
+        })
+
+        # Ask if the user wants to add more files
+        more_files = input("Do you want to add another file? (y/n): ").strip().lower()
+        if more_files != 'y':
+            break  # Exit the loop if the user doesn't want to add more files
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"  # Ensure the token is passed here
     }
 
-    response = requests.post(f"{PROJECT_URL}/projects/{project_number}/files", json=data)
+    # Make the POST request to add the project files
+    response = requests.post(f"{PROJECT_URL}/projects/{project_number}/files", headers=headers, json=files_data)
 
     if response.status_code == 201:
-        print("Project file added successfully!")
+        print(f"{len(files_data)} Project file(s) added successfully!")
     else:
         print(f"Error: {response.json()['message']}")
+
 
 # Sync project files with MongoDB QueueService
 def sync_project_files_with_mongo():
