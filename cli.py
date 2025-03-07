@@ -425,6 +425,31 @@ def view_all_files():
     else:
         print(f"Error: {response.status_code} - {response.text}")
 
+# View active queues (Admin only)
+def view_active_queues():
+    print("Fetching active queues...")
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"
+    }
+
+    url = f"{QUEUE_URL}/active-queues"  # Endpoint to fetch active queues
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        active_queues = response.json().get("active_queues", [])
+
+        if not active_queues:
+            print("No active queues found.")
+            return
+
+        print("\n--- Active Queues ---")
+        for i, queue in enumerate(active_queues):
+            print(f"{i+1}. Queue ID: {queue['id']} | Project File: {queue['project_file']} | Users in Queue: {len(queue['file_queue'])}")
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+
 
 
 # Main CLI Function
@@ -470,10 +495,11 @@ def main():
                 print("1. View Organization Projects")
                 print("2. View All Users")
                 print("3. View All Files")
-                print("4. Add Project")
-                print("5. Add Project File")
-                print("6. Sync Project Files with MongoDB")
-                print("7. Log Out")
+                print("4. View Active Queues")  # New option for active queues
+                print("5. Add Project")
+                print("6. Add Project File")
+                print("7. Sync Project Files with MongoDB")
+                print("8. Log Out")
                 admin_choice = input("Enter your choice: ").strip()
 
                 if admin_choice == "1":
@@ -483,12 +509,14 @@ def main():
                 elif admin_choice == "3":
                     view_all_files()
                 elif admin_choice == "4":
-                    add_project()
+                    view_active_queues()  # Call the new function to view active queues
                 elif admin_choice == "5":
-                    add_project_file()
+                    add_project()
                 elif admin_choice == "6":
-                    sync_project_files_with_mongo()
+                    add_project_file()
                 elif admin_choice == "7":
+                    sync_project_files_with_mongo()
+                elif admin_choice == "8":
                     print("Logging out...")
                     jwt_token = None
                     organization_id = None
@@ -496,6 +524,7 @@ def main():
                     is_admin = False
                 else:
                     print("Invalid choice. Returning to the main menu.")
+
             else:
                 # Show User options
                 print("\n1. View Projects")
