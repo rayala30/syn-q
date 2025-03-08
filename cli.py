@@ -322,16 +322,81 @@ def get_users_in_organization(organization_id):
         return {}
 
 
+def handle_queue_action(queue, selected_file, action):
+    """
+    Handle actions like 'Complete Sync' and 'Leave Queue'.
+    """
+    file_queue = selected_file.get('file_queue', [])
+
+    if action == "complete_sync":
+        # Check if user is the first in the queue
+        if file_queue and file_queue[0] == user_id:
+            print("You are the first in the queue.")
+            user_choice = input("Do you want to mark this file as 'Completed Sync'? (y/n): ").strip().lower()
+            if user_choice == "y":
+                # Proceed with completing the sync
+                print(f"Sync completed for file: {selected_file['file_name']}.")
+
+                # Send the sync completed request to the backend
+                response = requests.post(
+                    f"{QUEUE_URL}/complete-sync",
+                    json={
+                        "project_number": queue["project_number"],
+                        "file_name": selected_file["file_name"]
+                    }
+                )
+                if response.status_code == 200:
+                    print(f"Successfully marked {selected_file['file_name']} as completed in the queue.")
+                    # Automatically remove the user from the queue after completing sync
+                    remove_from_queue(selected_file, queue)
+                else:
+                    print(f"Error marking sync as completed: {response.text}")
+            else:
+                print("Sync not completed.")
+        else:
+            print("It is not your turn to sync yet!")
+            # Allow the user to leave the queue without syncing.
+            remove_from_queue(selected_file, queue)  # Ask for leaving queue regardless of sync
+
+    elif action == "leave_queue":
+        remove_from_queue(selected_file, queue)
+
+
+def remove_from_queue(selected_file, queue):
+    """
+    Removes the user from the file's queue.
+    """
+    file_queue = selected_file['file_queue']
+
+    if user_id in file_queue:
+        file_queue.remove(user_id)
+        print(f"You have left the queue for file {selected_file['file_name']}.")
+
+        # Update the MongoDB queue document
+        response = requests.post(
+            f"{QUEUE_URL}/update-queue",
+            json={
+                "project_number": queue["project_number"],
+                "file_name": selected_file["file_name"],
+                "file_queue": file_queue  # Remove user from the queue
+            }
+        )
+        if response.status_code == 200:
+            print(f"Successfully removed you from the queue for {selected_file['file_name']}.")
+        else:
+            print(f"Error removing from queue: {response.text}")
+    else:
+        print("You are not in the queue for this file.")
+
+
 # Function to view user's active queues
 def view_my_queues():
     print("Fetching your queues...")
 
-    # Get the organization ID and user ID from the logged-in user
     headers = {
         "Authorization": f"Bearer {jwt_token}"
     }
 
-    # Send request to the Queue service, passing user_id in the URL
     response = requests.get(f"{QUEUE_URL}/my-queues/{user_id}", headers=headers)
 
     if response.status_code == 200:
@@ -340,26 +405,42 @@ def view_my_queues():
             print("You are not in any active queues.")
             return
 
-        # Get the list of users in the organization for mapping user_id to names
         users = get_users_in_organization(organization_id)
 
         print("\n--- Active Queues ---")
-        file_counter = 1  # Start numbering from 1 for all files
+        file_counter = 1
+        files_list = []  # List to keep track of selected files
 
         for queue in queues:
             print(f"Project Number: {queue['project_number']}")
             for file in queue['files']:
                 file_users = [users.get(user_id, f"User-{user_id}") for user_id in file['file_queue']]
                 print(f"{file_counter}. File: {file['file_name']} (Type: {file['file_type']})")
-                print(f"   Queue: {', '.join(file_users)}")
-                file_counter += 1  # Increment the counter for the next file
+                print(f"   Queue: [{', '.join(file_users)}]")
+                files_list.append((file, queue))
+                file_counter += 1
 
-        # Option for the user to select a queue to edit
-        selected_queue = input("\nSelect which queue to edit (enter number): ")
-        # Add logic here to handle selected queue editing
+        selected_file_number = int(input("\nSelect which file to edit (enter number): ").strip()) - 1
+
+        if selected_file_number >= 0 and selected_file_number < len(files_list):
+            selected_file, selected_queue = files_list[selected_file_number]
+            print(f"\nSelected file: {selected_file['file_name']}")
+            print("Choose an action:")
+            print("1. Complete Sync (if it's your turn in the queue)")
+            print("2. Leave Queue")
+
+            action_choice = input("\nEnter your choice: ").strip()
+
+            if action_choice == "1":
+                handle_queue_action(selected_queue, selected_file, "complete_sync")
+            elif action_choice == "2":
+                handle_queue_action(selected_queue, selected_file, "leave_queue")
+            else:
+                print("Invalid choice.")
+        else:
+            print("Invalid selection.")
     else:
         print(f"Error: {response.status_code} - {response.text}")
-
 
 
 # View all projects in the organization (Admin only)
@@ -467,6 +548,7 @@ def view_active_queues():
             print(f"{i+1}. Queue ID: {queue['id']} | Project File: {queue['project_file']} | Users in Queue: {len(queue['file_queue'])}")
     else:
         print(f"Error: {response.status_code} - {response.text}")
+
 
 
 
