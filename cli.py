@@ -234,112 +234,97 @@ def sync_project_files_with_mongo():
 def get_projects():
     print("Fetching your projects...")
 
-    headers = {
-        "Authorization": f"Bearer {jwt_token}"
-    }
-
-    url = f"{PROJECT_URL}/projects/organization/{organization_id}"
-
-    response = requests.get(url, headers=headers)
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    response = requests.get(f"{PROJECT_URL}/projects/organization/{organization_id}", headers=headers)
 
     if response.status_code == 200:
-        projects = response.json().get("projects", [])
-
-        if not projects:
-            print("No projects found for this organization.")
-            return
-
+        projects = response.json()["projects"]
         print("\n--- Projects List ---")
-        for i, proj in enumerate(projects):
-            print(f"{i+1}. Project Number: {proj['project_number']} | Client: {proj['client_name']}")
+        for idx, project in enumerate(projects, 1):
+            print(f"{idx}. Project Number: {project['project_number']} | Client: {project['client_name']}")
 
-        project_choice = int(input("\nSelect a project by number: "))
-        if 1 <= project_choice <= len(projects):
-            selected_project = projects[project_choice - 1]
-            get_project_files(selected_project)  # Show files for the selected project
-        else:
-            print("Invalid project choice.")
+        selected_project = int(input("\nSelect a project by number: ")) - 1
+        project_number = projects[selected_project]["project_number"]
+
+        # Fetch files for the selected project
+        get_project_files(project_number)  # Pass project_number here
+
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        print(f"Error: {response.json()['message']}")
+        return
+
 
 # Get Project Files Function
-def get_project_files(project):
-    print(f"Fetching files for Project {project['project_number']}...")
+def get_project_files(project_number):
+    print(f"Fetching files for Project {project_number}...")
 
-    headers = {
-        "Authorization": f"Bearer {jwt_token}"
-    }
-
-    url = f"{PROJECT_URL}/projects/{project['project_number']}/files"
-
-    response = requests.get(url, headers=headers)
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    response = requests.get(f"{PROJECT_URL}/projects/{project_number}/files", headers=headers)
 
     if response.status_code == 200:
-        files = response.json().get("files", [])
-        if not files:
-            print("No files found for this project.")
-            return
-
+        files = response.json()["files"]
         print("\n--- Files List ---")
-        for i, file in enumerate(files):
-            print(f"{i+1}. {file['file_name']} (Type: {file['file_type']})")
+        for idx, file in enumerate(files, 1):
+            print(f"{idx}. {file['file_name']} (Type: {file['file_type']})")
 
-        file_choice = int(input("\nSelect a file by number to view: "))
-        if 1 <= file_choice <= len(files):
-            selected_file = files[file_choice - 1]
-            print(f"Selected file: {selected_file['file_name']}")
-            # Prompt user to join queue
-            join_queue_choice = input("Do you want to join the queue for this file? (y/n): ").strip().lower()
-            if join_queue_choice == 'y':
-                join_queue(selected_file)
-            else:
-                print("Returning to project files.")
-        else:
-            print("Invalid file choice.")
+        selected_file = int(input("\nSelect a file by number to view: ")) - 1
+        selected_file_details = files[selected_file]
+
+        # Ask user if they want to join the queue for the file
+        join_file = input(f"Do you want to join the queue for file {selected_file_details['file_name']}? (y/n): ").strip().lower()
+
+        if join_file == "y":
+            join_queue(selected_file_details, project_number)  # Pass both file details and project_number
+
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        print(f"Error: {response.json()['message']}")
+        return
 
 # Join Queue Function
-def join_queue(file):
-    print(f"Joining queue for file {file['file_name']}...")
+def join_queue(selected_file_details, project_number):
+    print(f"Joining queue for file {selected_file_details['file_name']}...")
 
-    headers = {
-        "Authorization": f"Bearer {jwt_token}"
-    }
-
+    headers = {"Authorization": f"Bearer {jwt_token}"}
     data = {
-        "user_id": user_id,  # Use the user_id extracted from the JWT token
-        "project_file": file['file_name']
+        "user_id": user_id,  # Ensure this is correctly set from your current session
+        "project_number": project_number,
+        "file_name": selected_file_details['file_name'],
+        "file_type": selected_file_details['file_type']
     }
 
-    response = requests.post(f"{QUEUE_URL}/join-queue", json=data, headers=headers)
+    response = requests.post(f"{QUEUE_URL}/join-file-queue", headers=headers, json=data)
 
     if response.status_code == 200:
-        print(f"Successfully joined the queue for {file['file_name']}.")
+        print(f"Successfully joined the queue for {selected_file_details['file_name']}.")
     else:
+        # Print the full response content for debugging
         print(f"Error: {response.status_code} - {response.text}")
+        try:
+            print(f"Error message: {response.json()['message']}")
+        except KeyError:
+            print("Error: The response did not contain a 'message' key.")
 
-# View My Queues Function
-def get_my_queues():
+
+def view_my_queues():
     print("Fetching your queues...")
 
     headers = {
-        "Authorization": f"Bearer {jwt_token}"
+        "Authorization": f"Bearer {jwt_token}"  # Use the token for authorization
     }
 
-    url = f"{QUEUE_URL}/my-queues?user_id={user_id}"  # Pass user_id as query parameter
-
-    response = requests.get(url, headers=headers)
+    response = requests.get(f"{QUEUE_URL}/my-queues", headers=headers)
 
     if response.status_code == 200:
-        queues = response.json().get("queues", [])
+        queues = response.json().get("activeQueues", [])
         if not queues:
-            print("You are not currently in any queues.")
+            print("You are not in any active queues.")
             return
 
-        print("\n--- Your Queues ---")
+        print("\n--- Active Queues ---")
         for queue in queues:
-            print(f"Queue ID: {queue['id']} | Project File: {queue['project_file']}")
+            print(f"Project Number: {queue['project_number']}")
+            for file in queue['files']:
+                print(f"File: {file['file_name']} (Type: {file['file_type']})")
     else:
         print(f"Error: {response.status_code} - {response.text}")
 
@@ -465,6 +450,7 @@ def main():
             # If not logged in, show login/register options
             print("1. Register")
             print("2. Login")
+            print("3. Exit")
             choice = input("Enter your choice: ").strip()
 
             if choice == '1':
@@ -485,6 +471,9 @@ def main():
                     print(f"Admin Status: {is_admin}")
                 else:
                     print("Login failed. Please try again.")
+            elif choice == '3':
+                print("Thank you for using Syn-Q!")
+                break
         else:
             # If logged in, show the main menu
             print(f"Logged in! Welcome back.")
@@ -535,7 +524,7 @@ def main():
                 if user_choice == "1":
                     get_projects()  # No need to pass organization_id, it’s globally set
                 elif user_choice == "2":
-                    get_my_queues()  # No need to pass user_id, it’s globally set
+                    view_my_queues()  # No need to pass user_id, it’s globally set
                 elif user_choice == "3":
                     print("Logging out...")
                     jwt_token = None
