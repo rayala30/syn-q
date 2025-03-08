@@ -2,6 +2,7 @@ import requests
 import os
 import jwt
 
+
 # Define public URLs for each microservice (replace with actual public URLs)
 AUTH_URL = "https://syn-q-authservice-production.up.railway.app"  # URL for auth service
 PROJECT_URL = "https://syn-q-projectservice-production.up.railway.app"  # URL for project service
@@ -14,9 +15,10 @@ organization_id = None
 user_id = None
 is_admin = False
 
+
 # Registration Function
 def register():
-    print("Register a new user:")
+    print("---------------------Register New User---------------------")
 
     name = input("Enter your name: ")
     email = input("Enter your email: ")
@@ -39,11 +41,12 @@ def register():
     else:
         print(f"Error: {response.json()['message']}")
 
+
 # Login Function
 def login():
     global jwt_token, organization_id, user_id, is_admin
 
-    print("Login:")
+    print("---------------------Login---------------------")
 
     email = input("Enter your email: ")
     password = input("Enter your password: ")
@@ -51,8 +54,9 @@ def login():
     data = {"email": email, "password": password}
     response = requests.post(f"{AUTH_URL}/login", json=data)
 
-    print("Response status:", response.status_code)
-    print("Response JSON:", response.json())
+    # Debug line
+    # print("Response status:", response.status_code)
+    # print("Response JSON:", response.json())
 
     if response.status_code == 200:
         jwt_token = response.json().get("token")
@@ -63,15 +67,16 @@ def login():
             # Decode the JWT token to extract organization_id, user_id, and is_admin
             try:
                 decoded_token = jwt.decode(jwt_token, options={"verify_signature": False})  # Decode without verifying signature (for testing purposes)
-                print("Decoded Token:", decoded_token)  # Debugging line
+                # print("Decoded Token:", decoded_token)  # Debugging line
 
                 organization_id = decoded_token.get("org_id")
                 user_id = decoded_token.get("user_id")  # Extract the user_id
                 is_admin = decoded_token.get("is_admin", False)  # Get admin status from the token
 
                 if organization_id and user_id is not None:
-                    print(f"Organization ID: {organization_id} extracted from token.")
-                    print(f"User ID: {user_id} extracted from token.")
+                    # Debugging
+                    print(f"Your Organization ID: {organization_id}")
+                    print(f"Your User ID: {user_id}")
                     return jwt_token
                 else:
                     print("Error: Missing user information (organization or user_id) in token.")
@@ -89,7 +94,7 @@ def login():
 
 # Add a new project
 def add_project():
-    print("Add a new project:")
+    print("---------------------Add Project---------------------")
 
     project_number = input("Enter project number: ").strip()
     client_name = input("Enter client name: ").strip()
@@ -119,7 +124,7 @@ def add_project():
 
 # Add a new project file
 def add_project_file():
-    print("Add a new project file:")
+    print("---------------------Add Project File---------------------")
 
     project_number = input("Enter project number: ")
 
@@ -155,7 +160,8 @@ def add_project_file():
 
 
 def get_projects_from_postgres():
-    print("Fetching projects from Postgres...")
+
+    print("\nFetching projects from Postgres...")
 
     headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass the JWT token for authorization
     response = requests.get(f"{PROJECT_URL}/projects/organization/{organization_id}", headers=headers)
@@ -169,7 +175,7 @@ def get_projects_from_postgres():
 
 
 def get_project_files_from_postgres(project_number):
-    print(f"Fetching project files for Project {project_number}...")
+    print(f"\nFetching project files for Project {project_number}...")
 
     headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass the JWT token for authorization
     response = requests.get(f"{PROJECT_URL}/projects/{project_number}/files", headers=headers)
@@ -184,7 +190,7 @@ def get_project_files_from_postgres(project_number):
 
 # Sync project files with MongoDB QueueService
 def sync_project_files_with_mongo():
-    print("Syncing project files with MongoDB...")
+    print("\nSyncing project files with MongoDB...")
 
     headers = {"Authorization": f"Bearer {jwt_token}"}  # Pass JWT token for auth
 
@@ -229,7 +235,6 @@ def sync_project_files_with_mongo():
             print(f"Error syncing project {project_number}: {response.status_code} - {response.text}")
 
 
-
 # View Projects Function
 def get_projects():
     print("Fetching your projects...")
@@ -238,51 +243,89 @@ def get_projects():
     response = requests.get(f"{PROJECT_URL}/projects/organization/{organization_id}", headers=headers)
 
     if response.status_code == 200:
-        projects = response.json()["projects"]
-        print("\n--- Projects List ---")
+        projects = response.json().get("projects", [])
+        if not projects:
+            print("No projects found for your organization.")
+            return
+
+        print("\n---------------------Projects List---------------------")
         for idx, project in enumerate(projects, 1):
             print(f"{idx}. Project Number: {project['project_number']} | Client: {project['client_name']}")
 
-        selected_project = int(input("\nSelect a project by number: ")) - 1
-        project_number = projects[selected_project]["project_number"]
+        try:
+            selected_project = input("\nSelect a project by number or press 'b' to go back: ").strip()
 
-        # Fetch files for the selected project
-        get_project_files(project_number)  # Pass project_number here
+            if selected_project.lower() == 'b':  # Allow the user to go back
+                print("Going back to the previous menu.")
+                return
+
+            selected_project = int(selected_project) - 1  # Convert to 0-based index
+            if selected_project < 0 or selected_project >= len(projects):
+                print("Invalid project selection. Please select a valid number.")
+                return
+
+            project_number = projects[selected_project]["project_number"]
+
+            # Fetch files for the selected project
+            get_project_files(project_number)  # Pass project_number here
+
+        except ValueError:
+            print("Invalid input. Please enter a valid project number or 'b' to go back.")
 
     else:
-        print(f"Error: {response.json()['message']}")
-        return
+        print(f"Error: {response.json().get('message', 'Unknown error occurred.')}")
 
 
 # Get Project Files Function
 def get_project_files(project_number):
-    print(f"Fetching files for Project {project_number}...")
+    print(f"\nFetching files for Project {project_number}...")
 
     headers = {"Authorization": f"Bearer {jwt_token}"}
     response = requests.get(f"{PROJECT_URL}/projects/{project_number}/files", headers=headers)
 
     if response.status_code == 200:
-        files = response.json()["files"]
-        print("\n--- Files List ---")
+        files = response.json().get("files", [])
+        if not files:
+            print(f"No files found for Project {project_number}.")
+            return
+
+        print("\n---------------------Files List---------------------")
         for idx, file in enumerate(files, 1):
             print(f"{idx}. {file['file_name']} (Type: {file['file_type']})")
 
-        selected_file = int(input("\nSelect a file by number to view: ")) - 1
-        selected_file_details = files[selected_file]
+        # Prompt user to select a file or go back
+        selected_file = input("\nSelect a file by number to view, or press 'b' to go back: ").strip()
 
-        # Ask user if they want to join the queue for the file
-        join_file = input(f"Do you want to join the queue for file {selected_file_details['file_name']}? (y/n): ").strip().lower()
+        if selected_file.lower() == 'b':  # Allow the user to go back
+            print("Going back to the previous menu.")
+            return
 
-        if join_file == "y":
-            join_queue(selected_file_details, project_number)  # Pass both file details and project_number
+        try:
+            selected_file = int(selected_file) - 1  # Convert to 0-based index
+            if selected_file < 0 or selected_file >= len(files):
+                print("Invalid file selection. Please select a valid number.")
+                return
+
+            selected_file_details = files[selected_file]
+
+            # Ask user if they want to join the queue for the file
+            join_file = input(
+                f"Do you want to join the queue for file {selected_file_details['file_name']}? (y/n): ").strip().lower()
+
+            if join_file == "y":
+                join_queue(selected_file_details, project_number)  # Pass both file details and project_number
+
+        except ValueError:
+            print("Invalid input. Please enter a valid file number or 'b' to go back.")
 
     else:
-        print(f"Error: {response.json()['message']}")
+        print(f"Error: {response.json().get('message', 'Unknown error occurred.')}")
         return
+
 
 # Join Queue Function
 def join_queue(selected_file_details, project_number):
-    print(f"Joining queue for file {selected_file_details['file_name']}...")
+    print(f"\nJoining queue for file {selected_file_details['file_name']}...")
 
     headers = {"Authorization": f"Bearer {jwt_token}"}
     data = {
@@ -298,9 +341,9 @@ def join_queue(selected_file_details, project_number):
         print(f"Successfully joined the queue for {selected_file_details['file_name']}.")
     else:
         # Print the full response content for debugging
-        print(f"Error: {response.status_code} - {response.text}")
+        # print(f"Error: {response.status_code} - {response.text}")
         try:
-            print(f"Error message: {response.json()['message']}")
+            print(f"Error: {response.json()['message']}")
         except KeyError:
             print("Error: The response did not contain a 'message' key.")
 
@@ -324,7 +367,7 @@ def get_users_in_organization(organization_id):
 
 def handle_queue_action(queue, selected_file, action):
     """
-    Handle actions like 'Complete Sync' and 'Leave Queue'.
+    Handle actions like 'Complete Sync', 'Leave Queue', or 'Back'.
     """
     file_queue = selected_file.get('file_queue', [])
 
@@ -355,11 +398,15 @@ def handle_queue_action(queue, selected_file, action):
                 print("Sync not completed.")
         else:
             print("It is not your turn to sync yet!")
-            # Allow the user to leave the queue without syncing.
-            remove_from_queue(selected_file, queue)  # Ask for leaving queue regardless of sync
 
     elif action == "leave_queue":
         remove_from_queue(selected_file, queue)
+
+    elif action == "back":
+        print("Going back to the previous menu.")
+        return
+    else:
+        print("Invalid choice. Please select again.")
 
 
 def remove_from_queue(selected_file, queue):
@@ -370,7 +417,7 @@ def remove_from_queue(selected_file, queue):
 
     if user_id in file_queue:
         file_queue.remove(user_id)
-        print(f"You have left the queue for file {selected_file['file_name']}.")
+        print(f"\nYou have left the queue for file {selected_file['file_name']}.")
 
         # Update the MongoDB queue document
         response = requests.post(
@@ -393,10 +440,12 @@ def remove_from_queue(selected_file, queue):
 def view_my_queues():
     print("Fetching your queues...")
 
+    # Get the organization ID and user ID from the logged-in user
     headers = {
         "Authorization": f"Bearer {jwt_token}"
     }
 
+    # Send request to the Queue service, passing user_id in the URL
     response = requests.get(f"{QUEUE_URL}/my-queues/{user_id}", headers=headers)
 
     if response.status_code == 200:
@@ -405,47 +454,66 @@ def view_my_queues():
             print("You are not in any active queues.")
             return
 
+        # Get the list of users in the organization for mapping user_id to names
         users = get_users_in_organization(organization_id)
 
-        print("\n--- Active Queues ---")
-        file_counter = 1
-        files_list = []  # List to keep track of selected files
+        print("\n---------------------Active Queues---------------------")
+        file_counter = 1  # Start numbering from 1 for all files
+
+        files_list = []  # Create a list to keep track of all the files
 
         for queue in queues:
             print(f"Project Number: {queue['project_number']}")
             for file in queue['files']:
                 file_users = [users.get(user_id, f"User-{user_id}") for user_id in file['file_queue']]
                 print(f"{file_counter}. File: {file['file_name']} (Type: {file['file_type']})")
-                print(f"   Queue: [{', '.join(file_users)}]")
-                files_list.append((file, queue))
-                file_counter += 1
+                print(f"   Queue: {', '.join(file_users)}")
+                files_list.append((file, queue))  # Add the file and its queue to the list
+                file_counter += 1  # Increment the counter for the next file
 
-        selected_file_number = int(input("\nSelect which file to edit (enter number): ").strip()) - 1
+        # Option for the user to select a queue to edit or go back
+        selected_file_number = input("\nSelect which file to edit (enter number) or press 'b' to go back: ").strip()
 
-        if selected_file_number >= 0 and selected_file_number < len(files_list):
-            selected_file, selected_queue = files_list[selected_file_number]
-            print(f"\nSelected file: {selected_file['file_name']}")
-            print("Choose an action:")
-            print("1. Complete Sync (if it's your turn in the queue)")
-            print("2. Leave Queue")
+        if selected_file_number.lower() == 'b':  # Check if user wants to go back
+            print("Going back to the previous menu.")
+            return  # Exit the function and go back to the main menu
 
-            action_choice = input("\nEnter your choice: ").strip()
+        # Proceed with selecting the file
+        try:
+            selected_file_number = int(selected_file_number) - 1
+            if selected_file_number >= 0 and selected_file_number < len(files_list):
+                selected_file, selected_queue = files_list[selected_file_number]  # Get the selected file and its queue
 
-            if action_choice == "1":
-                handle_queue_action(selected_queue, selected_file, "complete_sync")
-            elif action_choice == "2":
-                handle_queue_action(selected_queue, selected_file, "leave_queue")
+                # If a valid file is selected, proceed with the next actions
+                print(f"\nSelected file: {selected_file['file_name']}")
+                print("Choose an action:")
+                print("1. Complete Sync (if it's your turn in the queue)")
+                print("2. Leave Queue")
+                print("3. Back")
+
+                action_choice = input("\nEnter your choice: ").strip()
+
+                # Call the handle_queue_action function based on the user's choice
+                if action_choice == "1":
+                    handle_queue_action(selected_queue, selected_file, "complete_sync")
+                elif action_choice == "2":
+                    handle_queue_action(selected_queue, selected_file, "leave_queue")
+                elif action_choice == "3":
+                    print("Going back to the previous menu.")
+                    return  # Go back to the previous menu
+                else:
+                    print("Invalid choice.")
             else:
-                print("Invalid choice.")
-        else:
-            print("Invalid selection.")
+                print("Invalid selection.")
+        except ValueError:
+            print("Invalid input. Please enter a valid number or 'b' to go back.")
     else:
         print(f"Error: {response.status_code} - {response.text}")
 
 
 # View all projects in the organization (Admin only)
 def view_organization_projects(organization_id):
-    print("Fetching organization projects...")
+    print("\nFetching organization projects...")
 
     headers = {
         "Authorization": f"Bearer {jwt_token}"
@@ -462,12 +530,13 @@ def view_organization_projects(organization_id):
             print("No projects found for this organization.")
             return
 
-        print("\n--- Organization Projects ---")
+        print("\n---------------------Organization Projects---------------------")
         for i, project in enumerate(projects):
             print(f"{i+1}. Project Number: {project['project_number']} | Client: {project['client_name']}")
 
     else:
         print(f"Error: {response.status_code} - {response.text}")
+
 
 # View all users in the organization (Admin only)
 def view_all_users():
@@ -488,7 +557,8 @@ def view_all_users():
             print("No users found in your organization.")
             return
 
-        print("\n--- Users List ---")
+        print("---------------------User List---------------------")
+
         for i, user in enumerate(users):
             print(f"{i+1}. {user['name']} | {user['email']}")
 
@@ -497,7 +567,6 @@ def view_all_users():
 
 
 # View all project files (Admin only)
-# CLI: view_all_files()
 def view_all_files():
     print("Fetching all project files in your organization...")
 
@@ -517,12 +586,13 @@ def view_all_files():
             print("No files found for your projects.")
             return
 
-        print("\n--- All Files ---")
+        print("\n---------------------All Project Files---------------------")
         for i, file in enumerate(files):
             print(f"{i+1}. {file['file_name']} (Type: {file['file_type']})")
 
     else:
         print(f"Error: {response.status_code} - {response.text}")
+
 
 # View active queues (Admin only)
 def view_active_queues():
@@ -543,13 +613,11 @@ def view_active_queues():
             print("No active queues found.")
             return
 
-        print("\n--- Active Queues ---")
+        print("\n---------------------All Active Queues---------------------")
         for i, queue in enumerate(active_queues):
             print(f"{i+1}. Queue ID: {queue['id']} | Project File: {queue['project_file']} | Users in Queue: {len(queue['file_queue'])}")
     else:
         print(f"Error: {response.status_code} - {response.text}")
-
-
 
 
 # Main CLI Function
@@ -563,6 +631,7 @@ def main():
     while True:
         if not jwt_token:
             # If not logged in, show login/register options
+            print("\n-------------------------SYN-Q MAIN MENU-------------------------")
             print("1. Register")
             print("2. Login")
             print("3. Exit")
@@ -573,7 +642,7 @@ def main():
             elif choice == '2':
                 jwt_token = login()
                 if jwt_token:
-                    print("You are logged in!")
+                    print("Hello!")
 
                     # After login, decode the token to extract user details
                     decoded_token = jwt.decode(jwt_token, options={"verify_signature": False})
@@ -581,9 +650,10 @@ def main():
                     user_id = decoded_token.get("user_id")
                     is_admin = decoded_token.get("is_admin", False)
 
-                    print(f"Organization ID: {organization_id} extracted from token.")
-                    print(f"User ID: {user_id} extracted from token.")
-                    print(f"Admin Status: {is_admin}")
+                    # DEBUG STATEMENTS
+                    # print(f"Organization ID: {organization_id} extracted from token.")
+                    # print(f"User ID: {user_id} extracted from token.")
+                    # print(f"Admin Status: {is_admin}")
                 else:
                     print("Login failed. Please try again.")
             elif choice == '3':
@@ -591,7 +661,7 @@ def main():
                 break
         else:
             # If logged in, show the main menu
-            print(f"Logged in! Welcome back.")
+            # print(f"Logged in! Welcome back.")
 
             if is_admin:
                 # Show Admin options
@@ -631,7 +701,8 @@ def main():
 
             else:
                 # Show User options
-                print("\n1. View Projects")
+                print("\nUser Options:")
+                print("1. View Projects")
                 print("2. View My Queues")
                 print("3. Logout")
                 user_choice = input("Enter your choice: ").strip()
