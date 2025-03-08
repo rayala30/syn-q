@@ -536,7 +536,8 @@ def view_organization_projects(organization_id):
             print(f"{i+1}. Project Number: {project['project_number']} | Client: {project['client_name']}")
 
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        # print(f"Error: {response.status_code} - {response.text}")
+        print("No projects found for this organization.")
 
 
 # View all users in the organization (Admin only)
@@ -558,7 +559,7 @@ def view_all_users():
             print("No users found in your organization.")
             return
 
-        print("---------------------User List---------------------")
+        print("\n---------------------User List---------------------")
 
         for i, user in enumerate(users):
             print(f"{i+1}. {user['name']} | {user['email']}")
@@ -592,7 +593,8 @@ def view_all_files():
             print(f"{i+1}. {file['file_name']} (Type: {file['file_type']})")
 
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        # print(f"Error: {response.status_code} - {response.text}")
+        print("No project files found for this organization.")
 
 
 # View active queues (Admin only)
@@ -603,7 +605,7 @@ def view_active_queues():
         "Authorization": f"Bearer {jwt_token}"
     }
 
-    url = f"{QUEUE_URL}/active-queues"  # Endpoint to fetch active queues
+    url = f"{QUEUE_URL}/active-queues/{organization_id}"  # Endpoint to fetch active queues
 
     response = requests.get(url, headers=headers)
 
@@ -614,13 +616,20 @@ def view_active_queues():
             print("No active queues found.")
             return
 
+        # Filter queues by organization_id to ensure admins only see their own organization's queues
+        filtered_queues = [queue for queue in active_queues if queue['org_id'] == organization_id]
+
+        if not filtered_queues:
+            print("No active queues found for this organization.")
+            return
+
         # Get the list of users in the organization for mapping user_id to names
         users = get_users_in_organization(organization_id)
 
         print("\n---------------------All Active Queues---------------------")
         file_counter = 1  # Start numbering from 1 for all files
 
-        for queue in active_queues:
+        for queue in filtered_queues:
             print(f"Project Number: {queue['project_number']}")
             for file in queue['active_files']:
                 # Convert user IDs to user names
@@ -630,7 +639,8 @@ def view_active_queues():
                 file_counter += 1  # Increment the counter for the next file
 
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        # print("Error: Unable to fetch active queues.")
+        print("No active queues found for this organization.")
 
 
 # NOTIFICATION MICROSERVICE
