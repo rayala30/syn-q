@@ -305,14 +305,34 @@ def join_queue(selected_file_details, project_number):
             print("Error: The response did not contain a 'message' key.")
 
 
+# Function to get all users in the organization
+def get_users_in_organization(organization_id):
+    headers = {
+        "Authorization": f"Bearer {jwt_token}"
+    }
+
+    # Fetch all users from the auth service
+    response = requests.get(f"{AUTH_URL}/users/organization/{organization_id}", headers=headers)
+
+    if response.status_code == 200:
+        users = response.json().get("users", [])
+        return {user['id']: user['name'] for user in users}  # Map user_id to user email
+    else:
+        print(f"Error fetching users: {response.status_code} - {response.text}")
+        return {}
+
+
+# Function to view user's active queues
 def view_my_queues():
     print("Fetching your queues...")
 
+    # Get the organization ID and user ID from the logged-in user
     headers = {
-        "Authorization": f"Bearer {jwt_token}"  # Use the token for authorization
+        "Authorization": f"Bearer {jwt_token}"
     }
 
-    response = requests.get(f"{QUEUE_URL}/my-queues", headers=headers)
+    # Send request to the Queue service, passing user_id in the URL
+    response = requests.get(f"{QUEUE_URL}/my-queues/{user_id}", headers=headers)
 
     if response.status_code == 200:
         queues = response.json().get("activeQueues", [])
@@ -320,13 +340,26 @@ def view_my_queues():
             print("You are not in any active queues.")
             return
 
+        # Get the list of users in the organization for mapping user_id to names
+        users = get_users_in_organization(organization_id)
+
         print("\n--- Active Queues ---")
+        file_counter = 1  # Start numbering from 1 for all files
+
         for queue in queues:
             print(f"Project Number: {queue['project_number']}")
             for file in queue['files']:
-                print(f"File: {file['file_name']} (Type: {file['file_type']})")
+                file_users = [users.get(user_id, f"User-{user_id}") for user_id in file['file_queue']]
+                print(f"{file_counter}. File: {file['file_name']} (Type: {file['file_type']})")
+                print(f"   Queue: {', '.join(file_users)}")
+                file_counter += 1  # Increment the counter for the next file
+
+        # Option for the user to select a queue to edit
+        selected_queue = input("\nSelect which queue to edit (enter number): ")
+        # Add logic here to handle selected queue editing
     else:
         print(f"Error: {response.status_code} - {response.text}")
+
 
 
 # View all projects in the organization (Admin only)
