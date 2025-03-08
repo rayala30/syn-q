@@ -14,6 +14,7 @@ jwt_token = None
 organization_id = None
 user_id = None
 is_admin = False
+notifications = []
 
 
 # Registration Function
@@ -632,6 +633,48 @@ def view_active_queues():
         print(f"Error: {response.status_code} - {response.text}")
 
 
+# NOTIFICATION MICROSERVICE
+def view_new_user_notifications():
+    print("Fetching new user registrations...")
+
+    # Get the list of users (we assume the latest user has the highest ID)
+    response = requests.get(f"{AUTH_URL}/users/organization/{organization_id}", headers={"Authorization": f"Bearer {jwt_token}"})
+
+    if response.status_code == 200:
+        users = response.json().get("users", [])
+        if users:
+            # Find the newest user (assumes the ID is sequential)
+            newest_user = max(users, key=lambda x: x["id"])
+
+            # Fetch the notification template with ID 7
+            template_response = requests.get(f"{NOTIFICATION_URL}/notifications/7", headers={"Authorization": f"Bearer {jwt_token}"})
+
+            if template_response.status_code == 200:
+                notification_template = template_response.json().get("template", "")
+                if notification_template:
+                    # Replace the placeholder with the actual username
+                    notification_message = notification_template.replace("{username}", newest_user["name"])
+
+                    # Check if this user has already been notified (to avoid duplicates)
+                    if not any(user_id == newest_user["id"] for user_id, _ in notifications):
+                        # Append the new notification to the list
+                        notifications.append((newest_user["id"], notification_message))
+
+                        # Display the notifications list
+                        print("\n-------------------------New User Registrations-------------------------")
+                        for idx, (user_id, notification) in enumerate(notifications, 1):
+                            print(f"{idx}. {notification}")
+                    else:
+                        print(f"Notification for {newest_user['name']} already exists. No duplicates.")
+                else:
+                    print("No notification template found.")
+            else:
+                print(f"Error fetching notification template: {template_response.status_code}")
+        else:
+            print("No users found.")
+    else:
+        print(f"Error fetching users: {response.status_code}")
+
 
 
 # Main CLI Function
@@ -683,11 +726,12 @@ def main():
                 print("1. View Organization Projects")
                 print("2. View All Users")
                 print("3. View All Files")
-                print("4. View Active Queues")  # New option for active queues
+                print("4. View Active Queues")
                 print("5. Add Project")
                 print("6. Add Project File")
                 print("7. Sync Project Files with MongoDB")
-                print("8. Log Out")
+                print("8. View New User Registrations")  # Option to view new user notifications
+                print("9. Log Out")
                 admin_choice = input("Enter your choice: ").strip()
 
                 if admin_choice == "1":
@@ -705,6 +749,8 @@ def main():
                 elif admin_choice == "7":
                     sync_project_files_with_mongo()
                 elif admin_choice == "8":
+                    view_new_user_notifications()
+                elif admin_choice == "9":
                     print("Logging out...")
                     jwt_token = None
                     organization_id = None
