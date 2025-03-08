@@ -613,11 +613,25 @@ def view_active_queues():
             print("No active queues found.")
             return
 
+        # Get the list of users in the organization for mapping user_id to names
+        users = get_users_in_organization(organization_id)
+
         print("\n---------------------All Active Queues---------------------")
-        for i, queue in enumerate(active_queues):
-            print(f"{i+1}. Queue ID: {queue['id']} | Project File: {queue['project_file']} | Users in Queue: {len(queue['file_queue'])}")
+        file_counter = 1  # Start numbering from 1 for all files
+
+        for queue in active_queues:
+            print(f"Project Number: {queue['project_number']}")
+            for file in queue['active_files']:
+                # Convert user IDs to user names
+                file_users = [users.get(user_id, f"User-{user_id}") for user_id in file['file_queue']]
+                print(f"{file_counter}. File: {file['file_name']} (Type: {file['file_type']})")
+                print(f"   Queue: {', '.join(file_users)}")
+                file_counter += 1  # Increment the counter for the next file
+
     else:
         print(f"Error: {response.status_code} - {response.text}")
+
+
 
 
 # Main CLI Function
